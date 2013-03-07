@@ -1,7 +1,10 @@
 ENV["RAILS_ENV"] = "test"
-require 'test/unit'
+
 require File.expand_path('../../config/environment', __FILE__)
+require 'test/unit'
+require 'mocha/setup'
 require 'rails/test_help'
+require 'factory_girl_rails'
 
 class ActiveSupport::TestCase
   # Setup all fixtures in test/fixtures/*.(yml|csv) for all tests in alphabetical order.
@@ -11,7 +14,7 @@ class ActiveSupport::TestCase
   fixtures :all
 
   def encode_credentials(username, password)
-    "Basic #{ActiveSupport::Base64.encode64("#{username}:#{password}")}"
+    "Basic #{Base64.encode64("#{username}:#{password}")}"
   end
 
   def json_response

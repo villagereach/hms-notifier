@@ -1,9 +1,12 @@
 .bundle
 config/priv/
+vendor/bundle
+vendor/cache
 db/*.sqlite3
 db/*.sqlite3-journal
 db/seed_data/
 log/*.log
 tmp/
+.ruby-version
 .rvmrc
 *.swp
