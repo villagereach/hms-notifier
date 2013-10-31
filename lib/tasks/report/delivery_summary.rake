@@ -1,4 +1,4 @@
-require 'csv'
+ require 'csv'
 
 namespace :report do
   desc "CSV Monthly delivery report for enrollments and notifications"
@@ -11,8 +11,8 @@ namespace :report do
     range_end = range_start + 1.month
 
     columns = [
-      'SMS Child', 'Voice Child', 'SMS Pregnancy', 'Voice Pregnancy',
-      'All SMS', 'All Voice', 'All Child', 'All Pregnancy',
+      'SMS Child', 'Voice Child', 'SMS Pregnancy', 'Voice Pregnancy', 'SMS WCBA', 'Voice WCBA',
+      'All SMS', 'All Voice', 'All Child', 'All Pregnancy','All WCBA',
       'Grand Totals'
     ]
     puts CSV.generate_line([nil, *columns])
@@ -47,10 +47,13 @@ namespace :report do
       edata['child']['IVR'],
       edata['pregnancy']['SMS'],
       edata['pregnancy']['IVR'],
+      edata['wcba']['SMS'],
+      edata['wcba']['IVR'],
       edata['All']['SMS'],
       edata['All']['IVR'],
       edata['child']['All'],
       edata['pregnancy']['All'],
+      edata['wcba']['All'],
       edata['All']['All'],
     ])
 
@@ -92,10 +95,13 @@ namespace :report do
         ndata['child']['IVR'],
         ndata['pregnancy']['SMS'],
         ndata['pregnancy']['IVR'],
+        ndata['wcba']['SMS'],
+        ndata['wcba']['IVR'],
         ndata['All']['SMS'],
         ndata['All']['IVR'],
         ndata['child']['All'],
         ndata['pregnancy']['All'],
+        ndata['wcba']['All'],
         ndata['All']['All'],
       ])
     end
