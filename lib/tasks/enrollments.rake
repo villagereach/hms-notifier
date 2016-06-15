@@ -67,7 +67,8 @@ namespace :enrollments do
       "Child" => "child",
       "CHILD" => "child",
       "Pregnancy" => "pregnancy",
-      "PREGNANCY" => "pregnancy"
+      "PREGNANCY" => "pregnancy",
+      "WCBA"      => "wcba",
     }
 
     lang_to_lang = {
@@ -142,6 +143,9 @@ namespace :enrollments do
           next
         end
         stream_start = (Date.parse(due_date_text) - 40.weeks) rescue nil
+        next if stream_start.nil?
+      elsif stream_name == "wcba"
+        stream_start = encounters[0].encounter_datetime.to_date
         next if stream_start.nil?
       end
 
