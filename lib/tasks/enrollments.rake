@@ -1,8 +1,13 @@
 
 namespace :enrollments do
-  desc "test enrollments query"  
+  desc "deactivate all enrollments"
+  task :deactivate => :environment do
+    Enrollment.active.update_all(status: 'CANCELLED')
+  end
+  
+  
+  desc "enrollments query"  
   task :query => :environment do
-    logger = RAILS_DEFAULT_LOGGER
 
     class EncounterType < ActiveRecord::Base
       establish_connection Rails.configuration.database_configuration["openmrs"] 
@@ -29,10 +34,14 @@ namespace :enrollments do
       set_table_name :obs
       def value
         #all relevant ones seem to be either text or coded
-        value_text || value_decoded
+        value_text || value_decoded || value_datetime
       end
-      def value_decoded; ConceptName.for_concept_id(value_coded).name; end
-      def label; ConceptName.for_concept_id(concept_id).name; end
+      def value_decoded 
+        ConceptName.for_concept_id(value_coded).try(:name)
+      end
+      def label
+        ConceptName.for_concept_id(concept_id).name
+      end
       def key_and_value;  [label, value]; end
     end
 
@@ -85,21 +94,22 @@ namespace :enrollments do
     }
 
     enrollment_ids_to_cancel = Enrollment.active.map(&:id)
-
+    debug_es = []
     #  desc "show verbose enrollment-related query results"
     #  task :show => :environment, :openmrs_models do
-    all_tips_encounters=Encounter.tips #.order("patient_id ASC, date_created ASC")
+    all_tips_encounters=Encounter.tips.where("date_created > '2016-06-10'") #.order("patient_id ASC, date_created ASC")
     all_tips_encounters_by_patient= all_tips_encounters.group_by(&:patient_id)
-    warn "#{all_tips_encounters_by_patient.size} patients"
+    puts "#{all_tips_encounters_by_patient.size} patients"
     all_tips_encounters_by_patient.each do |patient_id, encounters|
       patient_name = PersonName.find_by_person_id(patient_id)
       first_name = patient_name.given_name
       last_name = patient_name.family_name
 
       encounter_data = encounters.last.obs_hash
-
+      
       national_id = Patient.find_by_sql("SELECT identifier FROM patient_identifier 
-      WHERE patient_id = #{patient_id} AND identifier_type = #{national_id_type_id}").first.identifier
+      WHERE patient_id = #{patient_id} AND identifier_type = #{national_id_type_id}").first.try(:identifier)
+
       ivr_id = Patient.find_by_sql("SELECT identifier FROM patient_identifier 
       WHERE patient_id = #{patient_id} AND identifier_type = #{ivr_id_type_id}").first.identifier
       ext_user_id = "#{ivr_id}/#{national_id}"
@@ -109,8 +119,8 @@ namespace :enrollments do
 
       person_log_summary = "#{first_name} #{last_name} #{phone} #{ext_user_id} (#{patient_id})"
 
-      warn "#{person_log_summary}"
-      warn "     #{encounters.size} total, last #{encounters.last.date_created}  #{encounters.last.encounter_id}: #{encounter_data.inspect}"
+      puts "#{person_log_summary}"
+      puts "     #{encounters.size} total, last #{encounters.last.date_created}  #{encounters.last.encounter_id}: #{encounter_data.inspect}"
 
       next if encounter_data["On tips and reminders program"] != "Yes" && encounter_data["ON TIPS AND REMINDERS PROGRAM"] != "YES"
       next if !phone.present? || phone =~ /^UNKNOWN$/i
@@ -132,31 +142,37 @@ namespace :enrollments do
       elsif stream_name=="pregnancy"
         pg_status_encounter = Encounter.pg_status.where(:patient_id=>patient_id).order("date_created DESC").first 
         if pg_status_encounter.nil?
-          warn "#{skip_text} Pregnancy enrollment without pregancy status encounter"
+          puts "#{skip_text} Pregnancy enrollment without pregnancy status encounter"
           next
         end
-        # curiously, EDD is stored as value_text, and has two possible names
-        due_date_text = pg_status_encounter.obs_hash["Pregnancy due date"] || pg_status_encounter.obs_hash["Expected due date"] || pg_status_encounter.obs_hash["PREGNANCY DUE DATE"] || pg_status_encounter.obs_hash["EXPECTED DUE DATE"]
-        if due_date_text.nil?
-          warn "#{skip_text} Pregnancy enrollment with pregnancy status encounter but without EDD 
+        if lmp = pg_status_encounter.obs_hash["Last menstrual period"]          
+          stream_start = lmp
+          due_date = lmp + 40.weeks
+        elsif due_date = pg_status_encounter.obs_hash["Pregnancy due date"] 
+          stream_start = due_date - 40.weeks
+        else
+          puts "#{skip_text} Pregnancy enrollment with pregnancy status encounter but without LMP or EDD 
           #{pg_status_encounter.encounter_id}, #{pg_status_encounter.obs_hash.inspect}"
           next
         end
-        stream_start = (Date.parse(due_date_text) - 40.weeks) rescue nil
-        next if stream_start.nil?
+        if due_date < Date.today
+          puts "#{skip_text} Pregnancy enrollment with due date in the past
+          #{pg_status_encounter.encounter_id}, #{pg_status_encounter.obs_hash.inspect}"
+          next
+        end
       elsif stream_name == "wcba"
         stream_start = encounters[0].encounter_datetime.to_date
         next if stream_start.nil?
       end
 
       #community phones disallowed from voice delivery
-      if (encounter_data["Telephone number type"] == "Community phone" && encounter_data["Type of message"] == "Voice") || (encounter_data["TELEPHONE NUMBER TYPE "] == "COMMUNITY PHONE" && encounter_data["TYPE OF MESSAGE"] == "VOICE")
-        warn "#{skip_text} Voice enrollment for community phone"
+      if (encounter_data["Telephone number type"] == "Community phone" && encounter_data["message type"] == "Voice") || (encounter_data["TELEPHONE NUMBER TYPE "] == "COMMUNITY PHONE" && encounter_data["TYPE OF MESSAGE"] == "VOICE")
+        puts "#{skip_text} Voice enrollment for community phone"
         next
       end
 
-      raise "Unknown language #{encounter_data["Language preference"]||encounter_data["LANGUAGE PREFERENCE"]}" unless language = lang_to_lang[encounter_data["Language preference"]] || lang_to_lang[encounter_data["LANGUAGE PREFERENCE"]]
-      raise "Unknown delivery type #{encounter_data["Type of message"]||encounter_data["TYPE OF MESSAGE"]}" unless delivery_method = message_type_to_delivery[encounter_data["Type of message"]] || message_type_to_delivery[encounter_data["TYPE OF MESSAGE"]]
+      raise "Unknown language #{encounter_data["Language preference"]}" unless language = lang_to_lang[encounter_data["Language preference"]] || lang_to_lang[encounter_data["LANGUAGE PREFERENCE"]]
+      raise "Unknown delivery type #{encounter_data["message type"]}" unless delivery_method = message_type_to_delivery[encounter_data["message type"]]
 
 
 
@@ -183,11 +199,13 @@ namespace :enrollments do
       if ENV['HMS_SAVE_ENROLLMENTS']
         enrollment.save!
       else
+#        binding.pry unless ENV['STOPRY']
         puts ActiveSupport::OrderedHash[*attributes.sort.flatten].to_yaml
+        debug_es << enrollment
       end
 
     end
-
+    binding.pry
     if ENV['HMS_SAVE_ENROLLMENTS']
       Enrollment.find(enrollment_ids_to_cancel).each do |e|
         e.update_attributes(:status => Enrollment::CANCELLED)

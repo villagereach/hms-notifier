@@ -1,10 +1,12 @@
 source 'http://rubygems.org'
 
-gem 'rails', '~>3.0'
-gem 'jquery-rails', '>= 0.2.6'
+gem 'rails', '~>3.1'
+gem 'jquery-rails'
 
-gem 'mysql2', '< 0.3'
-gem 'haml'
+gem 'mysql2'
+gem 'activerecord-mysql-adapter'
+
+gem 'haml', '3.1.4'
 gem 'uuid'
 gem 'rest-client'
 #temporary require to get fastercsv on hotline server while local.  may use in reporting rake later
@@ -14,12 +16,7 @@ gem 'kaminari'
 gem 'gcal4ruby'
 
 group :development, :test do
-  gem 'sqlite3'
-  gem 'rails3-generators'
-  gem 'haml-rails'
-  gem 'factory_girl_rails'
-  gem 'jsonschema'
-  gem 'mocha'
+  gem 'pry-rails'
 end
 
 # Bundle edge Rails instead:
