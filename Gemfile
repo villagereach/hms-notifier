@@ -4,7 +4,7 @@ gem 'rails', '~>3.1'
 gem 'jquery-rails'
 
 gem 'mysql2'
-gem 'activerecord-mysql-adapter'
+gem 'activerecord-mysql2-adapter'
 
 gem 'haml', '3.1.4'
 gem 'uuid'
