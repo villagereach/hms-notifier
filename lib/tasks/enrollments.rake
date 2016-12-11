@@ -2,7 +2,7 @@
 namespace :enrollments do
   desc "test enrollments query"  
   task :query => :environment do
-    logger = RAILS_DEFAULT_LOGGER
+#    logger = RAILS_DEFAULT_LOGGER
 
     class EncounterType < ActiveRecord::Base
       establish_connection Rails.configuration.database_configuration["openmrs"] 
@@ -31,8 +31,18 @@ namespace :enrollments do
         #all relevant ones seem to be either text or coded
         value_text || value_decoded
       end
-      def value_decoded; ConceptName.for_concept_id(value_coded).name; end
-      def label; ConceptName.for_concept_id(concept_id).name; end
+      def value_name
+      end
+      def value_decoded;
+        cn = ConceptName.for_concept_id(value_coded)
+        binding.pry if cn.nil?
+        cn.name
+      end
+      def label; 
+        cn = ConceptName.for_concept_id(concept_id)
+        binding.pry if cn.nil?
+        cn.name
+      end      
       def key_and_value;  [label, value]; end
     end
 
@@ -90,6 +100,7 @@ namespace :enrollments do
     all_tips_encounters=Encounter.tips #.order("patient_id ASC, date_created ASC")
     all_tips_encounters_by_patient= all_tips_encounters.group_by(&:patient_id)
     warn "#{all_tips_encounters_by_patient.size} patients"
+    #binding.pry
     all_tips_encounters_by_patient.each do |patient_id, encounters|
       patient_name = PersonName.find_by_person_id(patient_id)
       first_name = patient_name.given_name
