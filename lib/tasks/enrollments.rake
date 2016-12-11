@@ -42,6 +42,21 @@ namespace :enrollments do
       def label
         ConceptName.for_concept_id(concept_id).name
       end
+<<<<<<< HEAD
+=======
+      def value_name
+      end
+      def value_decoded;
+        cn = ConceptName.for_concept_id(value_coded)
+        binding.pry if cn.nil?
+        cn.name
+      end
+      def label; 
+        cn = ConceptName.for_concept_id(concept_id)
+        binding.pry if cn.nil?
+        cn.name
+      end      
+>>>>>>> 0e77c95... value fix
       def key_and_value;  [label, value]; end
     end
 
@@ -99,7 +114,12 @@ namespace :enrollments do
     #  task :show => :environment, :openmrs_models do
     all_tips_encounters=Encounter.tips.where("date_created > '2016-06-10'") #.order("patient_id ASC, date_created ASC")
     all_tips_encounters_by_patient= all_tips_encounters.group_by(&:patient_id)
+<<<<<<< HEAD
     puts "#{all_tips_encounters_by_patient.size} patients"
+=======
+    warn "#{all_tips_encounters_by_patient.size} patients"
+    #binding.pry
+>>>>>>> 0e77c95... value fix
     all_tips_encounters_by_patient.each do |patient_id, encounters|
       patient_name = PersonName.find_by_person_id(patient_id)
       first_name = patient_name.given_name
