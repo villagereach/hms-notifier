@@ -1,4 +1,4 @@
-require 'csv'
+ require 'csv'
 
 namespace :report do
   desc "CSV Monthly delivery report for enrollments and notifications"
